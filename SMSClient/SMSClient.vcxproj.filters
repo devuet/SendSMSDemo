@@ -39,6 +39,18 @@
     <ClInclude Include="MySQLOperation.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="ATCMD.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="com.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="list.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="queue.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -60,6 +72,15 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="MySQLOperation.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="ATCMD.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="list.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="queue.c">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

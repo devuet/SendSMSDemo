@@ -5,16 +5,21 @@
 #include "windows.h"
 #include "mysql.h"
 #include "sms_api.h"
-
+#include "queue.h"
 typedef unsigned char   uint8_t;
 typedef u_int UINT4;
 
 #define DEBUG
-#define MAXSIZE 1024
-#define MAXTELPHONENUM 25
-#define MAXDEVNUM 1024
-#define MAXDESTRICTNUM 20
+#define MAXSIZE 1024                //短信内容
+#define MAXTELPHONENUM 25              
+#define MAXDEVNUM 1024                //最大设备数
+#define MAXDESTRICTNUM 20            //最大区域数
 
+typedef struct dataBuffer
+{
+	tQUEUE_NODE next;
+	char data[1024];
+}DATABUFFER;
 
 typedef struct DistrictList {
 	int district_id;                        //区域号
@@ -37,9 +42,10 @@ typedef struct Datapack
 	char  FE[10];//帧尾
 }DataPacket;
 
-DISTRICTLIST districtList[MAXDESTRICTNUM];
-int districtListCount;
-
+extern DISTRICTLIST districtList[MAXDESTRICTNUM];
+extern int districtListCount;
+extern int districtArray[MAXDESTRICTNUM];  //存放网关号所对应哪些区域
+extern int districtArrayCount;
 //字节协议帧格式结构(Device To Server)
 #pragma pack(1)	
 typedef struct PackDev
@@ -52,17 +58,17 @@ typedef struct PackDev
 }PACKDEV;
 #pragma pack()
 
-MYSQL mysql;
+extern MYSQL mysql;
 
-//DTU
-DCB m_dcb;
-HANDLE m_hComm;   //CreateFile函数的串口句柄
 
 //cloud
-sms_send_message_request_2_t request;
-sms_send_message_response_2_t resp;
+extern sms_send_message_request_2_t request;
+extern sms_send_message_response_2_t resp;
 
-char sendWay[20];
+extern char sendWay[20];
+extern tQUEUE*pPackageList;
+extern CRITICAL_SECTION g_cs;
+extern BOOL dataDeal_thread;
 
 void loadAlarmDictionary(char*alarmContent);     //读取告警字典
 void loadUserList(char*userList);                 //读取注册用户表

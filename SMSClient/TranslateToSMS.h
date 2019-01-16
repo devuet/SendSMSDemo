@@ -10,16 +10,15 @@
 
 cJSON*alarmRoot_;
 extern char sendWay[20];
-extern DISTRICTLIST districtList[MAXDESTRICTNUM];
-extern int districtListCount;
+//extern DISTRICTLIST districtList[MAXDESTRICTNUM];
+//extern int districtListCount;
+
 
 //读取配置文件中的告警表并解析成JSON格式
 void parseAlarmTable();
 
-int getDistrictIndex(const char*cpuID);
-
 //将服务器发来的数据解析成相应的告警信息
-void getAlarmMessage(const char*recv_data,const int recv_len,char*alarmContent);
+DWORD WINAPI getAlarmData(LPVOID pParam);
 
 //对单个字节进行解析，得到单灯告警
 void parseAlarmByByte(cJSON*alarmTypeRoot,const char alarmByte,char*alarmContent);
@@ -32,7 +31,7 @@ void getOtherAlarm(const char*parse_data, const char*order,char*alarmContent);
 //太阳灯告警
 void getSunAlarm(const char*parse_data, const char*order, char*alarmContent);
 //对不同类型的告警信息进行处理
-void handleAlarmData(const char*parse_data, const char*order, char*alarmContent,int destrictIndex);
+void handleAlarmData(const char*parse_data, const char*order, char*alarmContent);
 
 
 #endif // !TRANSLATE_H

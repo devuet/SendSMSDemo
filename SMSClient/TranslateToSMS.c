@@ -5,6 +5,7 @@
 #include "cJSON.h"
 #include "mysql.h"
 #include "SendSMS.h"
+#include "ATCMD.h"
 
 void parseAlarmTable()
 {
@@ -18,54 +19,65 @@ void parseAlarmTable()
 	}
 }
 
-int getDistrictIndex(const char * cpuID)
-{
-	int i, j;
-	for (i = 0; i < districtListCount; i++) {
-		for (j = 0; j < districtList[i].devCount; j++) {
-			if (strcmp(cpuID, districtList[i].dev_cpuid[j]) == 0) {
-				return i;
-			}
-		}
-	}
-	return -1;
-}
-
-void getAlarmMessage(const char*recv_data, const int recv_len, char*alarmContent)
+DWORD WINAPI getAlarmData(LPVOID pParam)
 {
 	char authreq_data[1024];
 	char order[10];   //命令
 	char cpuid[20];
-	int destrictIndex = -1;
+	int dataCount = 0;
+	int dataLen = 0;
+	char alarmContent[1024] = { 0 };
 	char*parse_data = NULL;
+	DataPacket * pdatapack=NULL;
 	memset(order, '0', sizeof(order));
 	memset(authreq_data, 0, sizeof(authreq_data));
-
 	memset(cpuid, '\0', 20);
-	memcpy(authreq_data, recv_data, 1024);
+	do {
+		Sleep(1);
+		EnterCriticalSection(&g_cs);
+		DATABUFFER*data_buffer = (DATABUFFER*)QUEUE_GetFirst(pPackageList);
+		if (data_buffer == NULL) {
+			LeaveCriticalSection(&g_cs);
+			break;
+		}
+		QUEUE_DelHead(pPackageList);
+		LeaveCriticalSection(&g_cs);
+		memcpy(authreq_data,data_buffer->data,1024);
+		dataLen = strlen(authreq_data);
+		//如果是字节告警
+		if (CheckByteCmd(authreq_data, dataLen) == 1) {
+			PACKDEV packDev = *(PACKDEV*)authreq_data;
+			int type = packDev.data[0];
+			sprintf(order, "%d", type);
+			sprintf(cpuid, "%d", ntohl(packDev.devCpuId));
+			parse_data = packDev.data;
+		}
+		//字符告警
+		else {
+			pdatapack = parse(authreq_data);
+			parse_data = pdatapack->data;
+			sprintf(order, "%s%s", pdatapack->morder, pdatapack->sorder);
+			sprintf(cpuid, "%s", pdatapack->FH);
+		}
+		sprintf(alarmContent, "告警网关：%s,告警内容：", cpuid);
+		/*判断cpuid是否在管辖区域内*/
+		if (getDistrictIndex(cpuid) == 0) {
+			//do nothing
+		}
+		else {
+			handleAlarmData(parse_data, order, alarmContent);
+		}
+		if (data_buffer != NULL) {
+			memset(data_buffer, 0, sizeof(DATABUFFER));
+			data_buffer = NULL;
+		}
+		if (pdatapack != NULL)pdatapack=NULL;
 
-	//如果是字节告警
-	if (CheckByteCmd(recv_data, recv_len) == 1) {
-		PACKDEV packDev = *(PACKDEV*)recv_data;
-		int type = packDev.data[0];
-		sprintf(order, "%d", type);
-		sprintf(cpuid, "%d", ntohl(packDev.devCpuId));
-		parse_data = packDev.data;
-	}
-	//字符告警
-	else {            
-		DataPacket * pdatapack = parse(authreq_data);
-		parse_data = pdatapack->data;
-		sprintf(order, "%s%s", pdatapack->morder, pdatapack->sorder);
-		sprintf(cpuid, "%s", pdatapack->FH);
-	}
-	sprintf(alarmContent, "告警网关：%s,告警内容：", cpuid);
-	destrictIndex = getDistrictIndex(cpuid);     //得到告警网关的区域id
-	if (destrictIndex != -1) {                   //检查是否属于管辖区内
-		handleAlarmData(parse_data, order, alarmContent, destrictIndex);
-	}
-
-
+		EnterCriticalSection(&g_cs);
+		dataCount = pPackageList->m_Count;
+	} while (dataCount != 0);
+	dataDeal_thread = FALSE;
+	return 0;
 }
 
 void  parseAlarmByByte(cJSON*alarmTypeRoot, const char alarmByte, char*alarmContent)
@@ -121,7 +133,6 @@ void getLampAlarm(const char * parse_data, const char*order, char*alarmContent)
 		parseAlarmByByte(lowList, alarmLow, alarmContent);
 
 	}
-	return alarmContent;
 }
 
 void getLoopAlarm(const char * parse_data, const char * order, char * alarmContent)
@@ -149,8 +160,6 @@ void getOtherAlarm(const char*parse_data, const char*order, char*alarmContent)
 	}
 	value = cJSON_GetObjectItem(itemList, parse_data);
 	sprintf(alarmContent, "%s %s", alarmContent, value->valuestring);
-
-	return alarmContent;
 }
 
 void getSunAlarm(const char * parse_data, const char * order, char * alarmContent)
@@ -213,7 +222,7 @@ void getSunAlarm(const char * parse_data, const char * order, char * alarmConten
 
 }
 
-void handleAlarmData(const char * recv_data, const char * order, char * alarmContent, int destrictIndex)
+void handleAlarmData(const char * recv_data, const char * order, char * alarmContent)
 {
 	cJSON*itemList = NULL;
 	char*alarm = NULL;
@@ -241,11 +250,10 @@ void handleAlarmData(const char * recv_data, const char * order, char * alarmCon
 
 	//判断以哪种方式发送SMS
 	if (strcmp(sendWay, "cloud") == 0) {
-		sendSMSByCloud(alarmContent, destrictIndex);
+		sendSMSByCloud(alarmContent);
 	}
-	else {
-		sendSMSByDTU(alarmContent, destrictIndex);
+	else if(strcmp(sendWay,"DTU")==0){
+		sendSMSByDTU(alarmContent);
 	}
-	WriteSystemLog(alarmContent);
 }
 

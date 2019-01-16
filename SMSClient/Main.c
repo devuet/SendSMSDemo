@@ -3,12 +3,15 @@
 #include "TranslateToSMS.h"
 #include "SendSMS.h"
 #include "MySQLOperation.h"
+#include "ATCMD.h"
+#include "queue.h"
 //#include <WinSock2.h>
 #pragma comment(lib,"ws2_32.lib")
 
-extern DCB m_dcb;
-extern HANDLE m_hComm;
-extern char sendWay[20];
+char sendWay[20];
+tQUEUE*pPackageList;
+CRITICAL_SECTION g_cs;
+BOOL dataDeal_thread = FALSE;
 int main()
 {
 	WSADATA WSAData;
@@ -17,12 +20,25 @@ int main()
 	fd_set			readfds;
 	int serverSockfd;
 	char recv_buffer[1024];
-	char alarmContent[MAXSIZE];        //告警内容
-	char alarmType[25];
+	char temp_buffer[1024];
 	int serverPort= 13245;              //服务器端口号		
 	int result = 0;
 	int status = 0;
 	char serverIP[20];
+	
+	//处理数据线程
+	int tempcount = 0;
+	HANDLE hThread = NULL;
+	HANDLE createTableThread = NULL;
+	DATABUFFER data_buffer;
+	pPackageList = QUEUE_Init();
+	if (pPackageList == NULL)
+	{
+		printf("create the package failed!\n");
+		exit(1);
+	}
+	InitializeCriticalSection(&g_cs);
+
 
 	if (WSAStartup(MAKEWORD(2, 2), &WSAData) != 0)
 	{
@@ -44,11 +60,6 @@ int main()
 	sin->sin_port = htons(serverPort);
 	getParamFromConfig("serverIp",serverIP);    //读取server ip
 	sin->sin_addr.s_addr = inet_addr(serverIP);
-	/*result = bind(serverSockfd, &serverAddr, sizeof(*sin));
-	if (result < 0) {
-		perror("bind");
-		exit(1);
-	}*/
 
 	getParamFromConfig("sendWay", sendWay);      //从配置文件中读取发送SMS方式
 
@@ -86,18 +97,34 @@ int main()
 			if (result > 0)
 			{
 #ifdef DEBUG
-				/*for (int i = 0; i < result; i++) {
+				for (int i = 0; i < result; i++) {
 					printf("%02x", recv_buffer[i]);
-				}*/
+				}
+			//	printf("%s", recv_buffer);
 #endif
+				memset(data_buffer.data, '\0', 1024);
+				memcpy(data_buffer.data, recv_buffer, result);
+				EnterCriticalSection(&g_cs);
+				tempcount = pPackageList->m_Count;
+				if (QUEUE_AddToTail(pPackageList, &(data_buffer).next) == FALSE)
+				{
+					LeaveCriticalSection(&g_cs);
+					continue;
+				}
+				else
+				{
+					if (tempcount == 0)
+					{
+						if (dataDeal_thread == false)
+						{
+							if (hThread != NULL)CloseHandle(hThread);
+							dataDeal_thread = TRUE;
+							hThread = CreateThread(NULL, 0, getAlarmData, NULL, 0, NULL);
 
-				memset(alarmContent, '\0', MAXSIZE);
-				memset(alarmType, '\0', 25);
-				getAlarmMessage(recv_buffer,result,alarmContent,alarmType);
-#ifdef DEBUG
-				printf("%s", alarmContent);
-#endif
-
+						}
+					}
+					LeaveCriticalSection(&g_cs);
+				}
 				
 			}
 		}
@@ -105,7 +132,7 @@ int main()
 	loginOutServer(serverSockfd, serverAddr);  //注销
 	closesocket(serverSockfd);  //关闭端口
 
-	CloseHandle(m_hComm);   //关闭串口句柄
+	AT_ComClose();
 
 	sms_send_message_request_2_free(request);  //关闭请求连接
 	sms_send_message_response_2_free(resp);    //关闭响应连接

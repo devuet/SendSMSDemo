@@ -88,7 +88,21 @@ void getDevCpuID(int destrict_id, DISTRICTLIST *districtList, int index)
 	}
 }
 
-
+int getDistrictIndex(const char * cpuID)
+{
+	districtArrayCount = 0;
+	memset(districtArray, '\0', MAXDESTRICTNUM);
+	int i, j;
+	for (i = 0; i < districtListCount; i++) {
+		for (j = 0; j < districtList[i].devCount; j++) {
+			if (strcmp(cpuID, districtList[i].dev_cpuid[j]) == 0) {
+				districtArray[districtArrayCount++] = i;
+				break;
+			}
+		}
+	}
+	return districtArrayCount;
+}
 
 void getMap()
 {
@@ -124,11 +138,16 @@ void getMap()
 
 			//检查此区域id是否已在districtList中
 			for (j = 0; j < districtListCount; j++) {
-				if (districtList[j].district_id == district_id)
+				if (districtList[j].district_id == district_id) {
 					existFlag = true;
+					index = districtList[j].telCount;
+					sprintf(districtList[j].telephones[index], "%s", telephone);
+					districtList[j].telCount++;
+					break;
+				}
 			}
 			
-			if (!existFlag) {
+			if (existFlag==false) {
 				districtList[districtListCount].district_id = district_id;
 				index = districtList[districtListCount].telCount;
 				sprintf(districtList[districtListCount].telephones[index], "%s", telephone);
