@@ -21,16 +21,17 @@ int main()
 	int serverSockfd;
 	char recv_buffer[1024];
 	char temp_buffer[1024];
-	int serverPort= 13245;              //服务器端口号		
+	int serverPort= 19732;              //服务器端口号		
 	int result = 0;
 	int status = 0;
 	char serverIP[20];
-	
+
+
 	//处理数据线程
 	int tempcount = 0;
 	HANDLE hThread = NULL;
 	HANDLE createTableThread = NULL;
-	DATABUFFER data_buffer;
+	DATABUFFER*data_buffer;
 	pPackageList = QUEUE_Init();
 	if (pPackageList == NULL)
 	{
@@ -97,20 +98,21 @@ int main()
 			if (result > 0)
 			{
 #ifdef DEBUG
-				for (int i = 0; i < result; i++) {
-					printf("%02x", recv_buffer[i]);
-				}
-			//	printf("%s", recv_buffer);
+				printf("recv_data:%s\n", recv_buffer);
+				for (int i = 0; i < result; i++)
+					printf("%2x ", recv_buffer[i]);
+				printf("\n");
 #endif
-				memset(data_buffer.data, '\0', 1024);
-				memcpy(data_buffer.data, recv_buffer, result);
+				data_buffer = transToNode(recv_buffer, result);
 				EnterCriticalSection(&g_cs);
 				tempcount = pPackageList->m_Count;
-				if (QUEUE_AddToTail(pPackageList, &(data_buffer).next) == FALSE)
+				if (QUEUE_AddToTail(pPackageList, &(data_buffer)->next) == FALSE)
 				{
+			
 					LeaveCriticalSection(&g_cs);
 					continue;
 				}
+
 				else
 				{
 					if (tempcount == 0)

@@ -148,10 +148,20 @@ void loginOutServer(int sockfd, struct sockaddr serverAddr)
 	sendto(sockfd, (char*)message, (int)sizeof(message), (int)0, &serverAddr, sizeof(struct sockaddr_in));
 }
 
-//void keepAliveToServer(int sockfd, struct sockaddr serverAddr)
-//{
-//	double duration = difftime(time(NULL), (time_t)timing_);
-//}
+DATABUFFER* transToNode(char * data, int length)
+{
+	DATABUFFER *data_buffer;
+	if ((data_buffer = (DATABUFFER*)malloc(sizeof(DATABUFFER))) == (DATABUFFER*)NULL)
+	{
+		printf("no memory");
+		exit(1);
+	}
+	memset(data_buffer, 0, sizeof(DATABUFFER));
+	data_buffer->size = length;
+	memcpy(data_buffer->data, data, length);
+	return (data_buffer);
+}
+
 
 DataPacket *  parse(char receive[])
 {
@@ -215,5 +225,49 @@ int CheckByteCmd(char* command, int len)
 	char str1[1024], str4[1024];
 	memset(str1, 0, 1024);
 	memset(str4, 0, 1024);
+
+	//临时处理，时控命令特殊处理
+	if (strncmp(command + 11, "c", 1) == 0
+		|| strncmp(command + 11, "at", 2) == 0
+		|| strncmp(command + 11, "dt", 2) == 0
+		|| strncmp(command + 11, "ot", 2) == 0
+		|| strncmp(command + 11, "wt", 2) == 0
+		|| strncmp(command + 11, "sc", 2) == 0
+		|| strncmp(command + 11, "st", 2) == 0)
+	{
+		return 0;
+	}
+	//End 临时处理，时控命令特殊处理
+
+	while (NULL != p)
+	{
+		count++;
+		if (1 == count)
+		{
+			strcpy(str1, p);
+		}
+		else
+		{
+			strcpy(str4, p);
+		}
+
+		p = strtok(NULL, split);
+	}
+
+	if (0 != (count - 1) % 3)				//分隔完以后字符串(数量 - 1) % 3 != 0，命令为字节命令(为防止多条命令拼接到一起)
+	{
+		return 1;
+	}
+
+	if (0 != strcmp(str4, "end"))	//分隔完以后第四个字符串不是end，命令为字节命令
+	{
+		return 1;
+	}
+
+	if (10 != strlen(str1) && 16 != strlen((str1)))			//分隔完以后第一个字符串长度不是10也不是16，命令为字节命令
+	{
+		return 1;
+	}
+
 	return 0;
 }

@@ -29,7 +29,7 @@ bool ConnectDatabase()
 	getParamFromConfig("user", user);
 	getParamFromConfig("password", password);
 	getParamFromConfig("database", database);
-	if (!mysql_real_connect(&mysql, server, user, password, database, 3306, NULL,NULL)) {
+	if (!mysql_real_connect(&mysql, server, user, password, database, 33306, NULL,NULL)) {
 		mysql_close(&mysql);
 		WriteSystemLog(mysql_error(&mysql));
 		return false;

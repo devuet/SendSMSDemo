@@ -55,7 +55,6 @@ BOOL QUEUE_AddToTail(tQUEUE*pList, tQUEUE_NODE*pNode)
 BOOL QUEUE_DelHead(tQUEUE*pList)
 {
 	if((pList)->Head.pNext != &(pList)->Head) {
-	
 	  if(pList->Head.pNext == pList->Tail){
 	  (pList)->Head.pNext = &(pList)->Head; 
         (pList)->Tail       = &(pList)->Head; 

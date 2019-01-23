@@ -16,8 +16,8 @@ void parseTelNumMap()
 
 void initSerialPort()
 {
-	char SendData[1024] = { 0 };
-	char RecvData[1024] = { 0 };
+	//char SendData[1024] = { 0 };
+	//char RecvData[1024] = { 0 };
 	//´ò¿ªCOM¿Ú
 	AT_ComOpen(); 
 }
@@ -67,7 +67,7 @@ void sendSMSByCloud(char*alarmContent)
 
 void sendSMSByDTU(char*alarmContent)
 {
-	int len,destrictIndex,size;
+	int len=0,destrictIndex=0,size=0;
 	for (int count = 0; count < districtArrayCount; count++) {
 		destrictIndex = districtArray[count];
 		size = districtList[destrictIndex].telCount;
@@ -79,6 +79,7 @@ void sendSMSByDTU(char*alarmContent)
 			else {
 				len = strlen(alarmContent);
 				AT_SendSMS(telNum,alarmContent, len);
+				printf("%s\n", alarmContent);
 			}
 		}
 	}

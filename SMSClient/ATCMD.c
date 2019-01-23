@@ -2,15 +2,23 @@
 #include <string.h>
 #include "ATCMD.h"
 #include "global.h"
+
 static HANDLE hCom;
-static char com_name[32] = { 0 };
+static wchar_t com_name[32] = { 0 };
 static int BaudRate;
 
 int AT_ComOpen()
 
 {
-	BaudRate= CBR_115200;
-	sprintf(com_name, "%s", "COM5");
+	char baudRateStr[20] = { 0 };
+	char comName[20] = { 0 };
+	getParamFromConfig("COM", comName);
+	getParamFromConfig("BaudRate", baudRateStr);
+
+	int num = MultiByteToWideChar(0, 0, comName, -1, NULL, 0);
+	//wchar_t *name = (wchar_t*)melloc(sizeof(wchar_t));
+	MultiByteToWideChar(0, 0, comName, -1, com_name, num);
+	BaudRate = atoi(baudRateStr);
 	hCom = SerialOpen(com_name);
 	if (!hCom)
 
@@ -209,7 +217,11 @@ static int get_sms_center(char *sm)
 
 	AT_RecvData(rdata);
 
+#ifdef DEBUG
+
 	printf("rdata:%s\n", rdata);
+
+#endif
 
 	num_start = strchr(rdata, '"');
 
@@ -236,9 +248,9 @@ static int get_sms_center(char *sm)
 		*num_end = '\0';
 
 
-
+#ifdef DEBUG
 	printf("rdata start:%s\n", num_start + 2);
-
+#endif
 	memset(tmp, 0, sizeof(tmp));
 
 	phonenum_parity_exchange(num_start + 2, tmp);
@@ -275,9 +287,9 @@ static int get_sms_dest(char *phonenum, char *dest)
 
 		phonenum_parity_exchange(phonenum + 1, tmp);
 
-#ifdef DEBUG
+
 		sprintf(dest, "%s%02x%s", "1100", num_len, "91");
-#endif
+
 
 	}
 
@@ -287,9 +299,9 @@ static int get_sms_dest(char *phonenum, char *dest)
 
 		phonenum_parity_exchange(phonenum, tmp);
 
-#ifdef DEBUG
+
 		sprintf(dest, "%s%02x%s", "1100", num_len, "81");
-#endif
+
 
 	}
 
@@ -784,10 +796,10 @@ int AT_GetCi(char *rdata, int buf_len)
 
 }
 
-HANDLE SerialOpen(char * name)
+HANDLE SerialOpen(wchar_t* name)
 {
 	HANDLE com;
-	com = CreateFile(L"COM5",
+	com = CreateFile(name,
 		GENERIC_READ | GENERIC_WRITE, //‘ –Ì∂¡–¥
 		0,//∂¿’º
 		NULL,

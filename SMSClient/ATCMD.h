@@ -26,7 +26,7 @@ extern "C"
 
 	/* 串口动态链接库接口*/
 
-	_declspec(dllimport) HANDLE SerialOpen(char *name);
+	_declspec(dllimport) HANDLE SerialOpen(wchar_t* name);
 
 	_declspec(dllimport) int SerialSet(HANDLE fd, int rate);
 

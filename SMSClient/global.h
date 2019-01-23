@@ -18,6 +18,7 @@ typedef u_int UINT4;
 typedef struct dataBuffer
 {
 	tQUEUE_NODE next;
+	int size;
 	char data[1024];
 }DATABUFFER;
 
@@ -78,6 +79,6 @@ void WriteSystemLog(const char * strContent);      //日志
 void parseStrToInt(char*data,int*dataInt);          //将字符协议中的数据转为int型
 void loginInServer(int sockfd,struct sockaddr serverAddr);  //发注册消息给服务器
 void loginOutServer(int sockfd, struct sockaddr serverAddr); //退出服务器
-
+DATABUFFER* transToNode(char*data,int length);
 
 #endif
