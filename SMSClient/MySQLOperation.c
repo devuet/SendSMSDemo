@@ -11,7 +11,8 @@ void initdistrictList()
 		districtList[i].devCount = 0;
 		districtList[i].telCount = 0;
 		for (j = 0; j < MAXDEVNUM; j++) {
-			memset(districtList[i].dev_cpuid[j], '\0', 20);
+			memset(districtList[i].dev_gw_cpuid[j], '\0', 30);
+			memset(districtList[i].device_name[j], '\0', 50);
 		}
 		for (j= 0; j < MAXTELPHONENUM; j++) {
 			memset(districtList[i].telephones[j], '\0', 20);
@@ -23,7 +24,7 @@ bool ConnectDatabase()
 {
 	mysql_library_init(NULL, 0, 0);
 	mysql_init(&mysql);
-	mysql_options(&mysql, MYSQL_SET_CHARSET_NAME, "utf8");
+	mysql_options(&mysql, MYSQL_SET_CHARSET_NAME, "gbk");
 	char server[20], user[20], password[20], database[20];
 	getParamFromConfig("server", server);
 	getParamFromConfig("user", user);
@@ -69,7 +70,7 @@ void getDevCpuID(int destrict_id, DISTRICTLIST *districtList, int index)
 {
 	char query[1024];
 	int iIndex = 0;
-	sprintf(query,"select DISTINCT dev_cpuid from t_device where district_id LIKE '%%%d%%'", destrict_id);
+	sprintf(query,"select DISTINCT dev_gw_cpuid from t_device where district_id LIKE '%%%d%%'", destrict_id);
 	if (mysql_query(&mysql, query))        //Ö´ÐÐSQLÓï¾ä
 	{
 		WriteSystemLog(mysql_error(&mysql));
@@ -82,21 +83,29 @@ void getDevCpuID(int destrict_id, DISTRICTLIST *districtList, int index)
 		while (row = mysql_fetch_row(res)) {
 
 				iIndex = districtList[index].devCount;
-				sprintf(districtList[index].dev_cpuid[iIndex], "%s", row[0]);
+				sprintf(districtList[index].dev_gw_cpuid[iIndex], "%s", row[0]);
+				sprintf(query, "select device_name from t_device where dev_gw_cpuid= '%s'", districtList[index].dev_gw_cpuid[iIndex]);
+				MYSQL_ROW row= QueryProcess(query);
+				if (row != NULL) {
+					char nameutf8[50] = { 0 };
+					sprintf(nameutf8, "%s", row[0]);
+					sprintf(districtList[index].device_name[iIndex], "%s", nameutf8);
+				}
 				districtList[index].devCount++;
 		}
 	}
 }
 
-int getDistrictIndex(const char * cpuID)
+int getDistrictIndexAndName(const char * cpuID,char*devName)
 {
 	districtArrayCount = 0;
 	memset(districtArray, '\0', MAXDESTRICTNUM);
 	int i, j;
 	for (i = 0; i < districtListCount; i++) {
 		for (j = 0; j < districtList[i].devCount; j++) {
-			if (strcmp(cpuID, districtList[i].dev_cpuid[j]) == 0) {
+			if (strcmp(cpuID, districtList[i].dev_gw_cpuid[j]) == 0) {
 				districtArray[districtArrayCount++] = i;
+				sprintf(devName, "%s", districtList[i].device_name[j]);
 				break;
 			}
 		}

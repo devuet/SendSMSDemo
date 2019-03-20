@@ -20,18 +20,18 @@ void parseAlarmTable();
 //将服务器发来的数据解析成相应的告警信息
 DWORD WINAPI getAlarmData(LPVOID pParam);
 
-//对单个字节进行解析，得到单灯告警
-void parseAlarmByByte(cJSON*alarmTypeRoot,const char alarmByte,char*alarmContent);
-//得到单灯告警
-void getLampAlarm(const char * parse_data, const char*order,char*alarmContent);
-//得到回路告警
-void getLoopAlarm(const char*parse_data, const char*order, char*alarmContent);
-//解析其他形式的告警信心，格式需一致
-void getOtherAlarm(const char*parse_data, const char*order,char*alarmContent);
-//太阳灯告警
-void getSunAlarm(const char*parse_data, const char*order, char*alarmContent);
-//对不同类型的告警信息进行处理
-void handleAlarmData(const char*parse_data, const char*order, char*alarmContent);
+void transAlarmData(const char*parse_data, const char*order, char*alarmContent,bool isChars);
 
+void transStringAlarmData(const char*parse_data, const char*order, char*alarmContent);
+
+void transByteAlarmData(const char*parse_data, const char*order, char*alarmContent);
+
+void transByBit(const char byteData, cJSON*alarmTypeRoot, char*alarmContent);
+
+void transByByte(const char byteData, cJSON*alarmTypeRoot, char*alarmContent);
+
+void transAlarmFiled(const char*parse_data, cJSON*orderItem, char*alarmContent);
+
+void transAlarmLoop(const char*parse_data, cJSON*orderItem, char*alarmContent);
 
 #endif // !TRANSLATE_H

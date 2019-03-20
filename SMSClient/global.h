@@ -25,7 +25,8 @@ typedef struct dataBuffer
 typedef struct DistrictList {
 	int district_id;                        //区域号
 	char telephones[MAXTELPHONENUM][20];    //手机号
-	char dev_cpuid[MAXDEVNUM][20];         //区域所包含的网关号
+	char dev_gw_cpuid[MAXDEVNUM][30];         //区域所包含的网关号
+	char device_name[MAXDEVNUM][50];             //设备名称
 	int telCount;
 	int devCount;
 }DISTRICTLIST;
@@ -67,18 +68,20 @@ extern sms_send_message_request_2_t request;
 extern sms_send_message_response_2_t resp;
 
 extern char sendWay[20];
+extern char format[512];
 extern tQUEUE*pPackageList;
 extern CRITICAL_SECTION g_cs;
 extern BOOL dataDeal_thread;
 
 void loadAlarmDictionary(char*alarmContent);     //读取告警字典
 void loadUserList(char*userList);                 //读取注册用户表
+void loadMessageFormat(char*content);
 void getCurFilePath(char*fileName, char*strFileName);
 void getParamFromConfig(const char*optionName,char*value);     //根据配置返回相应值
 void WriteSystemLog(const char * strContent);      //日志
-void parseStrToInt(char*data,int*dataInt);          //将字符协议中的数据转为int型
+void parseStrToChars(char*data,char*chars);          //将字符协议中的数据转为int型
 void loginInServer(int sockfd,struct sockaddr serverAddr);  //发注册消息给服务器
 void loginOutServer(int sockfd, struct sockaddr serverAddr); //退出服务器
-DATABUFFER* transToNode(char*data,int length);
-
+DATABUFFER* transToNode(char*data,int length);    //将接收到的数据转化为队列节点
+char *replaceStr(char *str, char *oldstr, char *newstr);
 #endif

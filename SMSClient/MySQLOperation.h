@@ -17,7 +17,7 @@ bool ConnectDatabase();  //连接数据库
 void FreeConnect();   //断开连接
 MYSQL_ROW QueryProcess(char* sql_sentence);
 void getDevCpuID(int destrict_id, DISTRICTLIST *districtList, int index);
-int getDistrictIndex(const char*cpuID);  
+int getDistrictIndexAndName(const char*cpuID,char*devName);  
 void getMap();
 
 #endif // !1

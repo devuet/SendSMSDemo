@@ -9,8 +9,8 @@
 
 void parseAlarmTable()
 {
-	char alarmContent[2048];
-	memset(alarmContent, '\0', 2048);
+	char alarmContent[10240];
+	memset(alarmContent, '\0', 10240);
 	loadAlarmDictionary(alarmContent);
 	alarmRoot_ = cJSON_Parse(alarmContent);
 	if (!alarmRoot_) {
@@ -27,6 +27,7 @@ DWORD WINAPI getAlarmData(LPVOID pParam)
 	int dataCount = 0;
 	int dataLen = 0;
 	char alarmContent[1024] = { 0 };
+	bool isChars = false;
 	char*parse_data = NULL;
 	DataPacket * pdatapack=NULL;
 	memset(order, '0', sizeof(order));
@@ -57,8 +58,9 @@ DWORD WINAPI getAlarmData(LPVOID pParam)
 			PACKDEV packDev = *(PACKDEV*)authreq_data;
 			int type = packDev.data[0];
 			sprintf(order, "%d", type);
-			sprintf(cpuid, "%d", ntohl(packDev.devCpuId));
+			sprintf(cpuid, "%d", packDev.devCpuId);
 			parse_data = packDev.data;
+			isChars = false;
 #ifdef DEBUG
 			printf("字节告警\n");
 #endif 
@@ -69,6 +71,7 @@ DWORD WINAPI getAlarmData(LPVOID pParam)
 			parse_data = pdatapack->data;
 			sprintf(order, "%s%s", pdatapack->morder, pdatapack->sorder);
 			sprintf(cpuid, "%s", pdatapack->FH);
+			isChars = true;
 #ifdef DEBUG
 	    	printf("字符告警\n");
 #endif
@@ -83,14 +86,17 @@ DWORD WINAPI getAlarmData(LPVOID pParam)
 		}
 		else 
 		{
-			memset(alarmContent, '\0', sizeof(alarmContent));
-			sprintf(alarmContent, "告警网关：%s,告警内容：", cpuid);
+			char devName[50] = { 0 };
 			/*判断cpuid是否在管辖区域内*/
-			if (getDistrictIndex(cpuid) == 0) {
-				printf("%d: not exist!\n", cpuid);
+			if (getDistrictIndexAndName(cpuid,devName) == 0) {
+				printf("%s: not exist!\n", cpuid);
 			}
 			else {
-				handleAlarmData(parse_data, order, alarmContent);
+				memset(alarmContent, '\0', sizeof(alarmContent));
+				sprintf(alarmContent, "%s", format);           //获取告警信息的格式
+				replaceStr(alarmContent, "@device_name", devName);
+				replaceStr(alarmContent, "@dev_gw_cpuid", cpuid);
+				transAlarmData(parse_data, order, alarmContent,isChars);
 			}
 		}
 
@@ -110,170 +116,159 @@ DWORD WINAPI getAlarmData(LPVOID pParam)
 	return 0;
 }
 
-void  parseAlarmByByte(cJSON*alarmTypeRoot, const char alarmByte, char*alarmContent)
-{
-	int i = 0;
-	int value = 0;
-	int size = cJSON_GetArraySize(alarmTypeRoot);
+void transAlarmData(const char*parse_data, const char*order, char*alarmContent,bool isChars) {
 	cJSON*item = NULL;
+	cJSON*orderItem= cJSON_GetObjectItem(alarmRoot_, order);   //获取告警命令对象
+	char content[1024] = { 0 };   //告警内容
+	char type[10] = {0};
+	item = cJSON_GetObjectItem(orderItem, "类型");
+	sprintf(type, "%s", item->valuestring);
+	//根据类型的不同做不同处理
+	if (strcmp(type, "字符串")==0) {
+		//字符串处理
+		transStringAlarmData(parse_data, order, content);
+	}
+	else {
+		//字节处理
+		if (isChars) {
+			char data[1024] = { 0 };
+			parseStrToChars(parse_data, data);
+			transByteAlarmData(data, order, content);
+		}
+		else {
+			transByteAlarmData(parse_data, order, content);
+		}
+	}
+	replaceStr(alarmContent, "@alarm_content", content);
+	//判断以哪种方式发送SMS
+	if (strcmp(sendWay, "cloud") == 0) {
+		sendSMSByCloud(alarmContent);
+	}
+	else if (strcmp(sendWay, "DTU") == 0) {
+		sendSMSByDTU(alarmContent);
+		//	printf("%s\n", alarmContent);
+	}
+}
+
+void transStringAlarmData(const char*parse_data, const char*order, char*alarmContent)
+{
+	cJSON*itemList = NULL;
+	cJSON*value = NULL;
+	itemList = cJSON_GetObjectItem(alarmRoot_, order);
+	value = cJSON_GetObjectItem(itemList, parse_data);
+	sprintf(alarmContent, "%s %s", alarmContent, value->valuestring);
+}
+
+void transByteAlarmData(const char*parse_data, const char*order, char*alarmContent) 
+{
+	cJSON*item = NULL;
+	cJSON*orderItem = cJSON_GetObjectItem(alarmRoot_, order);   //获取告警命令对象
+	item = cJSON_GetObjectItem(orderItem, "循环");
+	if (item) {
+		transAlarmLoop(parse_data, orderItem, alarmContent);
+	}
+	else {
+		//无循环
+		transAlarmFiled(parse_data, orderItem, alarmContent);
+	}
+}
+
+void transByBit(const char byteData,cJSON*alarmTypeRoot,char*alarmContent) {
+
+	cJSON*item = cJSON_GetObjectItem(alarmTypeRoot,"值");
+	int value = atoi(item->valuestring);
+	cJSON*itemList = cJSON_GetObjectItem(alarmTypeRoot, "含义");
+	int size = cJSON_GetArraySize(itemList);
+	int curValue = 0;
 	if (size > 8) {
 		printf("alarm table error");
-		exit(1);
+		return;
 	}
-	for (; i < size; i++) {
-		value = (alarmByte >> i) & 0x01;
-		if (value == 1) {
-			item = cJSON_GetArrayItem(alarmTypeRoot, i);
+	for (int i=0; i < size; i++) {
+		curValue = (byteData >> i) & 0x01;
+		if (curValue == value) {
+			item = cJSON_GetArrayItem(itemList, i);
 			sprintf(alarmContent, "%s %s", alarmContent, item->valuestring);
 		}
 	}
 }
 
-void getLampAlarm(const char * parse_data, const char*order, char*alarmContent)
-{
-	int i = 0;
-	int alarmAddr = 0;
-	char alarmUp, alarmLow;
-	int data[512];
-
-	//将字符数据转换成整数形式
-	parseStrToInt(parse_data, data);
-	int lampNum = data[0];
-
-	cJSON*itemList = NULL;
-	cJSON*upList, *lowList;
-	if (lampNum <= 0)
-		return NULL;
-	itemList = cJSON_GetObjectItem(alarmRoot_, order);
-	upList = cJSON_GetObjectItem(itemList, "1");    //第一个字节代表阈值上限
-	lowList = cJSON_GetObjectItem(itemList, "2");   //第二个字节代表阈值下限
-	if (!itemList) {
-		printf("no list of %s", order);
-		return NULL;
+void transByByte(const char byteData, cJSON*alarmTypeRoot, char*alarmContent) {
+	int dataValue = byteData;
+	cJSON*item = cJSON_GetObjectItem(alarmTypeRoot, "值");
+	if (strcmp(item->valuestring, "无") == 0) {
+		item = cJSON_GetObjectItem(alarmTypeRoot, "含义");
+		sprintf(alarmContent, "%s %s:%d ", alarmContent, item->valuestring, dataValue);
 	}
-	for (; i < lampNum; i++) {
-		alarmAddr = (data[i * 3 + 1] & 0x000000ff);
-		alarmUp = (data[i * 3 + 2] & 0x000000ff);
-		alarmLow = (data[i * 3 + 3] & 0x000000ff);
-		sprintf(alarmContent, "%s 单灯地址号:%d ", alarmContent, alarmAddr);
-		//获取上限告警
-		parseAlarmByByte(upList, alarmUp, alarmContent);
-
-		//获取下限告警
-		parseAlarmByByte(lowList, alarmLow, alarmContent);
-
+	else {
+		int value = atoi(item->valuestring);
+		if (dataValue == value) {
+			item = cJSON_GetObjectItem(alarmTypeRoot, "含义");
+			sprintf(alarmContent, "%s %s", alarmContent, item->valuestring);
+		}
 	}
 }
 
-void getLoopAlarm(const char * parse_data, const char * order, char * alarmContent)
-{
-	short len = 0;
-	cJSON*itemList = NULL;
-	len = (parse_data[1] << 8) + parse_data[2];
-	if (len != 2) {
-		return;
-	}
-	itemList = cJSON_GetObjectItem(alarmRoot_, order);
-	char byte = parse_data[4];
-	parseAlarmByByte(itemList, byte, alarmContent);
-}
-
-void getOtherAlarm(const char*parse_data, const char*order, char*alarmContent)
-{
-	cJSON*itemList = NULL;
-	cJSON*value = NULL;
-
-	itemList = cJSON_GetObjectItem(alarmRoot_, order);
-	if (!itemList) {
-		printf("no list of %s", order);
-		return NULL;
-	}
-	value = cJSON_GetObjectItem(itemList, parse_data);
-	sprintf(alarmContent, "%s %s", alarmContent, value->valuestring);
-}
-
-void getSunAlarm(const char * parse_data, const char * order, char * alarmContent)
-{
-	int data[512];
-	cJSON*itemList,*value;
-	itemList = cJSON_GetObjectItem(alarmRoot_, order);
-	parseStrToInt(parse_data, data);   //转成int型数据
-	uint8_t u8CommStat = (data[4]&0x000000ff);
-	uint8_t u8CurBatteryState = (data[16] & 0x000000ff);
-	uint8_t u8CurLoadState = (data[19] & 0x000000ff);
-	uint8_t u8OptState = (data[21] & 0x000000ff);
-
-	//判断蓄电池状态记录告警
-	if (0x02 != u8CurBatteryState)	//不是正常状态均认为异常
-	{
-		//发送蓄电池状态异常告警
-		value = cJSON_GetArrayItem(itemList, 1);
-		sprintf(alarmContent, "%s%s", alarmContent, value->valuestring);
-	}
-
-	//判断太阳能板状态记录告警
-
-
-	if (0x02 != u8OptState)
-	{
-
-		//发送太阳能状态告警
-		value = cJSON_GetArrayItem(itemList, 0);
-		sprintf(alarmContent, "%s%s", alarmContent, value->valuestring);
-
-	}
-
-
-	//判断负载状态记录告警
-
-
-	if (0x00 != u8CurLoadState && 0x01 != u8CurLoadState)	//不是开关状态时即为错误状态
-	{
-
-		//负载状态告警
-		value = cJSON_GetArrayItem(itemList, 3);
-		sprintf(alarmContent, "%s%s", alarmContent, value->valuestring);
-
-	}
-
-
-	//判断通讯口(RS485)状态记录告警
-
-
-	if (0x00 == u8CommStat)	//0x00表示连接异常
-	{
-		//控制器通讯异常
-		value = cJSON_GetArrayItem(itemList, 2);
-		sprintf(alarmContent, "%s%s", alarmContent, value->valuestring);
-	}
-
-}
-
-void handleAlarmData(const char * recv_data, const char * order, char * alarmContent)
-{
-
-	if (strcmp(order, "73") == 0) {
-		getLampAlarm(recv_data, order, alarmContent);
-
-	}
-	if (strcmp(order, "15") == 0) {
-		getLoopAlarm(recv_data, order, alarmContent);
-
-	}
-	if (strcmp(order, "719") == 0) {
-		getOtherAlarm(recv_data, order, alarmContent);
-	}
-	if (strcmp(order, "74") == 0) {
-		getSunAlarm(recv_data, order, alarmContent);
-	}
-
-	//判断以哪种方式发送SMS
-	if (strcmp(sendWay, "cloud") == 0) {
-		sendSMSByCloud(alarmContent);
-	}
-	else if(strcmp(sendWay,"DTU")==0){
-		sendSMSByDTU(alarmContent);
-	//	printf("%s\n", alarmContent);
+void transAlarmFiled(const char*parse_data, cJSON*orderItem, char*alarmContent) {
+	char filed[10] = { 0 };
+	char value = 0;
+	cJSON*filedItem = NULL;
+	cJSON*unitItem = NULL;
+	cJSON*meanItem = cJSON_GetObjectItem(orderItem, "字段含义");
+	cJSON*item = cJSON_GetObjectItem(orderItem, "告警字段");
+	int size = cJSON_GetArraySize(item);
+	for (int i = 0; i < size; i++) {
+		sprintf(filed, "%s", cJSON_GetArrayItem(item, i)->valuestring);
+		filedItem = cJSON_GetObjectItem(meanItem, filed);
+		unitItem = cJSON_GetObjectItem(filedItem, "单位");
+		value = atoi(filed)&0x000000ff;
+		value = parse_data[value];
+		if (strcmp(unitItem->valuestring, "字节") == 0) {
+			transByByte(value, filedItem, alarmContent);
+		}
+		else {
+			transByBit(value, filedItem, alarmContent);
+		}
 	}
 }
 
+void transAlarmLoop(const char*parse_data, cJSON*orderItem, char*alarmContent) {
+	int  count = 0;
+	char value = 0;
+	int size = 0;
+	char filed[10] = { 0 };
+	cJSON*filedItem = NULL;
+	cJSON*unitItem = NULL;
+	cJSON*item = NULL;
+	item = cJSON_GetObjectItem(orderItem, "协议");
+	cJSON*meanItem = cJSON_GetObjectItem(orderItem, "字段含义");
+	if (strcmp(item->valuestring, "字符")==0) {
+		item = cJSON_GetObjectItem(orderItem, "循环次数字段");
+		count = atoi(item->valuestring);
+		count = parse_data[count];
+		item = cJSON_GetObjectItem(orderItem, "告警字段");
+		size = cJSON_GetArraySize(item);
+	}
+	else {
+		item = cJSON_GetObjectItem(orderItem, "告警字段");
+		size = cJSON_GetArraySize(item);
+		count = parse_data[1] << 8 + parse_data[2];
+		count = count / size;
+	}
+
+	for (int i = 0; i < count; i++) {
+		for (int j = 0; j < size; j++) {
+			sprintf(filed, "%s", cJSON_GetArrayItem(item, j)->valuestring);
+			filedItem = cJSON_GetObjectItem(meanItem, filed);
+			unitItem = cJSON_GetObjectItem(filedItem, "单位");
+			value = atoi(filed) & 0x000000ff;
+			value = parse_data[value+i*size];
+			if (strcmp(unitItem->valuestring, "字节") == 0) {
+				transByByte(value, filedItem, alarmContent);
+			}
+			else {
+				transByBit(value, filedItem, alarmContent);
+			}
+		}
+	}
+}

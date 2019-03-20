@@ -9,6 +9,7 @@
 #pragma comment(lib,"ws2_32.lib")
 
 char sendWay[20];
+char format[512];
 tQUEUE*pPackageList;
 CRITICAL_SECTION g_cs;
 BOOL dataDeal_thread = FALSE;
@@ -63,6 +64,12 @@ int main()
 	sin->sin_addr.s_addr = inet_addr(serverIP);
 
 	getParamFromConfig("sendWay", sendWay);      //从配置文件中读取发送SMS方式
+
+	loadMessageFormat(format);                      //读取发送短信的格式
+	if (format == NULL) {
+		WriteSystemLog("format error!");
+		exit(1);
+	}
 
 	loginInServer(serverSockfd, serverAddr);        //向服务器注册
 

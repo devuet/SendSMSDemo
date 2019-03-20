@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
-
+#include <string.h>
 void getCurFilePath(char*fileName, char*strFileName)
 {
 	char szFileName[_MAX_PATH];
@@ -91,6 +91,27 @@ void loadUserList(char * userList)
 	*(userList + i) = '\0';
 }
 
+void loadMessageFormat(char * content)
+{
+	char fileName[260];
+	memset(fileName, '\0', 260);
+	getCurFilePath("messageFormat.txt", fileName);
+
+	FILE *fp;
+	fp = fopen(fileName, "r");
+	if (!fp) {
+		WriteSystemLog("alarmDictionary could not be opened! \n");
+		exit(1);
+	}
+	int i = 0;
+	char cChar = fgetc(fp);
+	while (!feof(fp))
+	{
+		*(content + i) = cChar; i++; cChar = fgetc(fp);
+	}
+	*(content + i) = '\0';
+}
+
 void WriteSystemLog(const char * strContent)
 {
 	char szFileName[_MAX_PATH];
@@ -120,14 +141,14 @@ void WriteSystemLog(const char * strContent)
 	fclose(fp);
 }
 
-void parseStrToInt(char * data, int*dataInt)
+void parseStrToChars(char * data, char*chars)
 {
 	char*p;
 	int i = 1;
-	dataInt[0] = atoi(strtok(data, ","));
+	chars[0] = atoi(strtok(data, ",")) & 0x000000ff;
 	while ((p = strtok(NULL, ",")))
 	{
-		dataInt[i++] = atoi(p);
+		chars[i++] = atoi(p) & 0x000000ff;
 	}
 }
 
@@ -162,6 +183,23 @@ DATABUFFER* transToNode(char * data, int length)
 	return (data_buffer);
 }
 
+char * replaceStr(char * str, char * oldstr, char * newstr)
+{
+	char bstr[1024];//转换缓冲区
+	memset(bstr, 0, sizeof(bstr));
+
+	for (int i = 0; i < strlen(str); i++) {
+		if (!strncmp(str + i, oldstr, strlen(oldstr))) {//查找目标字符串
+			strcat(bstr, newstr);
+			i += strlen(oldstr) - 1;
+		}
+		else {
+			strncat(bstr, str + i, 1);//保存一字节进缓冲区
+		}
+	}
+	strcpy(str, bstr);
+	return str;
+}
 
 DataPacket *  parse(char receive[])
 {

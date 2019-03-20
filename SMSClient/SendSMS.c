@@ -79,7 +79,8 @@ void sendSMSByDTU(char*alarmContent)
 			else {
 				len = strlen(alarmContent);
 				AT_SendSMS(telNum,alarmContent, len);
-				printf("%s\n", alarmContent);
+			//	printf("%s\n", alarmContent);
+			//	Sleep(5000);
 			}
 		}
 	}

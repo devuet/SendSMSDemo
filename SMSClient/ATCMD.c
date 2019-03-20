@@ -511,9 +511,9 @@ int SMS_PduMode(char *phonenum,char *msg)
 
 		WriteSystemLog("set pdumode Failed\n");
 
-		//AT_ComClose();
+		AT_ComClose();
 
-		//exit(1);
+		exit(1);
 
 	}
 
@@ -527,9 +527,9 @@ int SMS_PduMode(char *phonenum,char *msg)
 
 		WriteSystemLog("set pdumode Failed\n");
 
-		//AT_ComClose();
+		AT_ComClose();
 
-		//exit(1);
+		exit(1);
 
 	}
 
@@ -561,7 +561,7 @@ int SMS_PduMode(char *phonenum,char *msg)
 
 		WriteSystemLog("send phone number Failed\n");
 
-		//AT_ComClose();
+		AT_ComClose();
 		return -1;
 
 	}
@@ -580,7 +580,7 @@ int SMS_PduMode(char *phonenum,char *msg)
 
 		WriteSystemLog(msg);
 
-		//AT_ComClose();
+		AT_ComClose();
 
 		return -1;
 
@@ -591,7 +591,7 @@ int SMS_PduMode(char *phonenum,char *msg)
 
 		WriteSystemLog(msg);
 
-	//	AT_ComClose();
+		AT_ComClose();
 		return -1;
 
 	}

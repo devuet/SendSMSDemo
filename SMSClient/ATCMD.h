@@ -56,7 +56,7 @@ extern "C"
 
 	_declspec(dllexport) int AT_GetCi(char *rdata, int buf_len);
 
-	_declspec(dllexport) int at_test(char *wdata, char *rdata, int len);
+//	_declspec(dllexport) int at_test(char *wdata, char *rdata, int len);
 
 
 
