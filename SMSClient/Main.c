@@ -17,12 +17,14 @@ int main()
 {
 	WSADATA WSAData;
 	struct sockaddr serverAddr;
+	struct sockaddr localAddr;
 	struct sockaddr_in *sin;
 	fd_set			readfds;
 	int serverSockfd;
 	char recv_buffer[1024];
 	char temp_buffer[1024];
 	int serverPort= 19732;              //服务器端口号		
+	int localPort = 19739;              //本地端口号
 	int result = 0;
 	int status = 0;
 	char serverIP[20];
@@ -55,6 +57,17 @@ int main()
 		perror("server");
 		exit(1);
 	}
+	sin = (struct sockaddr_in *) &localAddr;
+	memset((char*)sin, '\0', sizeof(localAddr));
+	sin->sin_family = AF_INET;
+	sin->sin_port = htons(localPort);
+	sin->sin_addr.s_addr = INADDR_ANY;
+	result = bind(serverSockfd, &localAddr, sizeof(*sin));
+	if (result < 0) {
+		WriteSystemLog("server sockfd bind error\n");
+		exit(1);
+	}
+
 	//add address info
 	sin = (struct sockaddr_in *) & serverAddr;
 	memset((char *)sin, '\0', sizeof(serverAddr));

@@ -56,7 +56,7 @@ DWORD WINAPI getAlarmData(LPVOID pParam)
 		//如果是字节告警
 		if (CheckByteCmd(authreq_data, dataLen) == 1) {
 			PACKDEV packDev = *(PACKDEV*)authreq_data;
-			int type = packDev.data[0];
+			unsigned char type = packDev.data[0];
 			sprintf(order, "%d", type);
 			sprintf(cpuid, "%d", packDev.devCpuId);
 			parse_data = packDev.data;
@@ -193,7 +193,7 @@ void transByBit(const char byteData,cJSON*alarmTypeRoot,char*alarmContent) {
 	}
 }
 
-void transByByte(const char byteData, cJSON*alarmTypeRoot, char*alarmContent) {
+void transByByte(const unsigned char byteData, cJSON*alarmTypeRoot, char*alarmContent) {
 	int dataValue = byteData;
 	cJSON*item = cJSON_GetObjectItem(alarmTypeRoot, "值");
 	if (strcmp(item->valuestring, "无") == 0) {
@@ -211,7 +211,7 @@ void transByByte(const char byteData, cJSON*alarmTypeRoot, char*alarmContent) {
 
 void transAlarmFiled(const char*parse_data, cJSON*orderItem, char*alarmContent) {
 	char filed[10] = { 0 };
-	char value = 0;
+	unsigned char value = 0;
 	cJSON*filedItem = NULL;
 	cJSON*unitItem = NULL;
 	cJSON*meanItem = cJSON_GetObjectItem(orderItem, "字段含义");
@@ -233,8 +233,8 @@ void transAlarmFiled(const char*parse_data, cJSON*orderItem, char*alarmContent) 
 }
 
 void transAlarmLoop(const char*parse_data, cJSON*orderItem, char*alarmContent) {
-	int  count = 0;
-	char value = 0;
+	short  count = 0;
+	unsigned char value = 0;
 	int size = 0;
 	char filed[10] = { 0 };
 	cJSON*filedItem = NULL;
@@ -252,8 +252,12 @@ void transAlarmLoop(const char*parse_data, cJSON*orderItem, char*alarmContent) {
 	else {
 		item = cJSON_GetObjectItem(orderItem, "告警字段");
 		size = cJSON_GetArraySize(item);
-		count = parse_data[1] << 8 + parse_data[2];
-		count = count / size;
+		//count = (parse_data[1] << 8) + parse_data[2];
+		char lenstr[10] = { 0 };
+		sprintf(lenstr, "%s", cJSON_GetObjectItem(orderItem, "节点长度")->valuestring);
+		int len = atoi(lenstr);
+		memcpy(count, parse_data[1], 2);
+		count = count / len;
 	}
 
 	for (int i = 0; i < count; i++) {

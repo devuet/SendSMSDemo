@@ -28,7 +28,7 @@ void transByteAlarmData(const char*parse_data, const char*order, char*alarmConte
 
 void transByBit(const char byteData, cJSON*alarmTypeRoot, char*alarmContent);
 
-void transByByte(const char byteData, cJSON*alarmTypeRoot, char*alarmContent);
+void transByByte(const unsigned char byteData, cJSON*alarmTypeRoot, char*alarmContent);
 
 void transAlarmFiled(const char*parse_data, cJSON*orderItem, char*alarmContent);
 
