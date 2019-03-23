@@ -245,7 +245,6 @@ DataPacket *  parse(char receive[])
 	return temp;
 }
 //ÅĞ¶ÏÃüÁîÊÇ×Ö½ÚÃüÁî»¹ÊÇ×Ö·ûÃüÁî
-//return: true - ×Ö½ÚÃüÁî£»false - ×Ö·ûÃüÁî
 int CheckByteCmd(char* command, int len)
 {
 	char cmdTmp[1024];

@@ -32,7 +32,7 @@ void initRequest()
 	request = sms_send_message_request_2_alloc();
 
 	if (!request) {
-		WriteSystemLog("allocate request object failed: %s\r\n", sms_get_last_error());
+		WriteSystemLog(sms_get_last_error());
 		exit(1);
 	}
 	//getchar();

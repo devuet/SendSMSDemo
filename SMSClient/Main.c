@@ -22,7 +22,7 @@ int main()
 	fd_set			readfds;
 	int serverSockfd;
 	char recv_buffer[1024];
-	char temp_buffer[1024];
+//	char temp_buffer[1024];
 	int serverPort= 19732;              //服务器端口号		
 	int localPort = 19739;              //本地端口号
 	int result = 0;

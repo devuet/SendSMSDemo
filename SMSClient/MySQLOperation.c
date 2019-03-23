@@ -70,28 +70,37 @@ void getDevCpuID(int destrict_id, DISTRICTLIST *districtList, int index)
 {
 	char query[1024];
 	int iIndex = 0;
+	char dev_cpuid[30];
 	sprintf(query,"select DISTINCT dev_gw_cpuid from t_device where district_id LIKE '%%%d%%'", destrict_id);
 	if (mysql_query(&mysql, query))        //执行SQL语句
 	{
 		WriteSystemLog(mysql_error(&mysql));
-		return NULL;
+		return;
 	}
 	else
 	{
 		MYSQL_RES* res = mysql_store_result(&mysql);
 		MYSQL_ROW row;
 		while (row = mysql_fetch_row(res)) {
-
-				iIndex = districtList[index].devCount;
-				sprintf(districtList[index].dev_gw_cpuid[iIndex], "%s", row[0]);
-				sprintf(query, "select device_name from t_device where dev_gw_cpuid= '%s'", districtList[index].dev_gw_cpuid[iIndex]);
-				MYSQL_ROW row= QueryProcess(query);
-				if (row != NULL) {
-					char nameutf8[50] = { 0 };
-					sprintf(nameutf8, "%s", row[0]);
-					sprintf(districtList[index].device_name[iIndex], "%s", nameutf8);
+				memset(dev_cpuid, '\0', 30);
+				sprintf(dev_cpuid, "%s", row[0]);
+				if (strlen(dev_cpuid) == 10) {     //筛选掉1361147666+0+2类型，无意义的dev_gw_cpuid
+					iIndex = districtList[index].devCount;
+					sprintf(districtList[index].dev_gw_cpuid[iIndex], "%s", row[0]);
+					sprintf(query, "select device_name from t_device where dev_gw_cpuid= '%s'", districtList[index].dev_gw_cpuid[iIndex]);
+					MYSQL_ROW row = QueryProcess(query);
+					if (row != NULL) {
+						char nameutf8[50] = { 0 };
+						sprintf(nameutf8, "%s", row[0]);
+						sprintf(districtList[index].device_name[iIndex], "%s", nameutf8);
+					}
+					districtList[index].devCount++;
 				}
-				districtList[index].devCount++;
+				else {
+#ifdef DEBUG
+					printf("useless dev_gw_cpuid: %s", dev_cpuid);
+#endif
+				}
 		}
 	}
 }

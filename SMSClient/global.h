@@ -84,4 +84,6 @@ void loginInServer(int sockfd,struct sockaddr serverAddr);  //发注册消息给服务器
 void loginOutServer(int sockfd, struct sockaddr serverAddr); //退出服务器
 DATABUFFER* transToNode(char*data,int length);    //将接收到的数据转化为队列节点
 char *replaceStr(char *str, char *oldstr, char *newstr);
+int CheckByteCmd(char* command, int len);
+DataPacket *  parse(char receive[]);
 #endif

@@ -256,7 +256,7 @@ void transAlarmLoop(const char*parse_data, cJSON*orderItem, char*alarmContent) {
 		char lenstr[10] = { 0 };
 		sprintf(lenstr, "%s", cJSON_GetObjectItem(orderItem, "节点长度")->valuestring);
 		int len = atoi(lenstr);
-		memcpy(count, parse_data[1], 2);
+		memcpy(&count, &parse_data[1], 2);
 		count = count / len;
 	}
 
