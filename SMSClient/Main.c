@@ -94,7 +94,7 @@ int main()
 	parseAlarmTable();                               //解析告警数据表
 	
 	//initRequest();                              //初始化云端发送口
-	//initSerialPort();                              //初始化DTU串口设置
+	initSerialPort();                              //初始化DTU串口设置
 
 	//接收告警信息
 	for (;;) {

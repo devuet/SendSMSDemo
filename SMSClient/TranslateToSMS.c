@@ -131,7 +131,8 @@ void transAlarmData(const char*parse_data, const char*order, char*alarmContent,b
 	else {
 		//字节处理
 		if (isChars) {
-			char data[1024] = { 0 };
+			unsigned char data[1024] = { 0 };
+			printf("%s", parse_data);
 			parseStrToChars(parse_data, data);
 			transByteAlarmData(data, order, content);
 		}
@@ -145,8 +146,8 @@ void transAlarmData(const char*parse_data, const char*order, char*alarmContent,b
 		sendSMSByCloud(alarmContent);
 	}
 	else if (strcmp(sendWay, "DTU") == 0) {
-		//sendSMSByDTU(alarmContent);
-			printf("%s\n", alarmContent);
+		sendSMSByDTU(alarmContent);
+	//		printf("%s\n", alarmContent);
 	}
 }
 
@@ -198,7 +199,10 @@ void transByByte(const unsigned char byteData, cJSON*alarmTypeRoot, char*alarmCo
 	cJSON*item = cJSON_GetObjectItem(alarmTypeRoot, "value");
 	int size = cJSON_GetArraySize(item);
 	cJSON*valueItem = NULL;
-	if (strcmp(item->valuestring, "none") == 0) {
+	char nodeAddr[10] = { 0 };
+	valueItem = cJSON_GetArrayItem(item, 0);
+	sprintf(nodeAddr, "%s",valueItem->valuestring);
+	if ((1==size)&&(strcmp(nodeAddr, "-1")) == 0) {
 		item = cJSON_GetObjectItem(alarmTypeRoot, "meaning");
 		sprintf(alarmContent, "%s %s:%d ", alarmContent, item->valuestring, dataValue);
 	}
@@ -207,8 +211,8 @@ void transByByte(const unsigned char byteData, cJSON*alarmTypeRoot, char*alarmCo
 			valueItem = cJSON_GetArrayItem(item, i);
 			int value = atoi(valueItem->valuestring);
 			if (dataValue == value) {
-				item = cJSON_GetObjectItem(alarmTypeRoot, "meaning");
-				sprintf(alarmContent, "%s %s", alarmContent, item->valuestring);
+				valueItem = cJSON_GetObjectItem(alarmTypeRoot, "meaning");
+				sprintf(alarmContent, "%s %s", alarmContent, valueItem->valuestring);
 			}
 		}
 	}
@@ -228,7 +232,7 @@ void transAlarmFiled(const char*parse_data, cJSON*orderItem, char*alarmContent) 
 		unitItem = cJSON_GetObjectItem(filedItem, "unit");
 		value = atoi(filed)&0x000000ff;
 		value = parse_data[value];
-		if (strcmp(unitItem->valuestring, "字节") == 0) {
+		if (strcmp(unitItem->valuestring, "byte") == 0) {
 			transByByte(value, filedItem, alarmContent);
 		}
 		else {
@@ -241,18 +245,22 @@ void transAlarmLoop(const char*parse_data, cJSON*orderItem, char*alarmContent) {
 	short  count = 0;
 	unsigned char value = 0;
 	int size = 0;
+	int nodeLen = 0;
 	char filed[10] = { 0 };
 	cJSON*filedItem = NULL;
 	cJSON*unitItem = NULL;
 	cJSON*item = NULL;
 	item = cJSON_GetObjectItem(orderItem, "protocol");
-	cJSON*meanItem = cJSON_GetObjectItem(orderItem, "protocol");
+	cJSON*meanItem = cJSON_GetObjectItem(orderItem, "byteContent");
 	if (strcmp(item->valuestring, "char")==0) {
 		item = cJSON_GetObjectItem(orderItem, "nodesNumByte");
 		count = atoi(item->valuestring);
 		count = parse_data[count];
 		item = cJSON_GetObjectItem(orderItem, "alarmByte");
 		size = cJSON_GetArraySize(item);
+		char lenstr[10] = { 0 };
+		sprintf(lenstr, "%s", cJSON_GetObjectItem(orderItem, "nodeLen")->valuestring);
+		nodeLen = atoi(lenstr);
 	}
 	else {
 		item = cJSON_GetObjectItem(orderItem, "alarmByte");
@@ -260,9 +268,9 @@ void transAlarmLoop(const char*parse_data, cJSON*orderItem, char*alarmContent) {
 		//count = (parse_data[1] << 8) + parse_data[2];
 		char lenstr[10] = { 0 };
 		sprintf(lenstr, "%s", cJSON_GetObjectItem(orderItem, "nodeLen")->valuestring);
-		int len = atoi(lenstr);
+		nodeLen = atoi(lenstr);
 		memcpy(&count, &parse_data[1], 2);
-		count = count / len;
+		count = count / nodeLen;
 	}
 
 	for (int i = 0; i < count; i++) {
@@ -271,7 +279,7 @@ void transAlarmLoop(const char*parse_data, cJSON*orderItem, char*alarmContent) {
 			filedItem = cJSON_GetObjectItem(meanItem, filed);
 			unitItem = cJSON_GetObjectItem(filedItem, "unit");
 			value = atoi(filed) & 0x000000ff;
-			value = parse_data[value+i*size];
+			value = parse_data[value+i*nodeLen];
 			if (strcmp(unitItem->valuestring, "byte") == 0) {
 				transByByte(value, filedItem, alarmContent);
 			}

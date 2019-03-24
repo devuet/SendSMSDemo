@@ -96,11 +96,11 @@ void getDevCpuID(int destrict_id, DISTRICTLIST *districtList, int index)
 					}
 					districtList[index].devCount++;
 				}
-				else {
-#ifdef DEBUG
-					printf("useless dev_gw_cpuid: %s\n", dev_cpuid);
-#endif
-				}
+//				else {
+//#ifdef DEBUG
+//					printf("useless dev_gw_cpuid: %s\n", dev_cpuid);
+//#endif
+//				}
 		}
 	}
 }

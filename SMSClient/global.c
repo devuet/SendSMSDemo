@@ -145,10 +145,11 @@ void parseStrToChars(char * data, unsigned char*chars)
 {
 	char*p;
 	int i = 1;
-	chars[0] = atoi(strtok(data, ",")) & 0x000000ff;
+	chars[0] = atoi(strtok(data, ","));
+	printf("%d  ", chars[0]);
 	while ((p = strtok(NULL, ",")))
 	{
-		chars[i++] = atoi(p) & 0x000000ff;
+		chars[i++] = atoi(p);
 	}
 }
 
