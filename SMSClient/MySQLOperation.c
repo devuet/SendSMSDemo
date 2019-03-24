@@ -98,7 +98,7 @@ void getDevCpuID(int destrict_id, DISTRICTLIST *districtList, int index)
 				}
 				else {
 #ifdef DEBUG
-					printf("useless dev_gw_cpuid: %s", dev_cpuid);
+					printf("useless dev_gw_cpuid: %s\n", dev_cpuid);
 #endif
 				}
 		}
@@ -176,5 +176,6 @@ void getMap()
 		}
 
 	}
+	cJSON_Delete(root); //´ÓÄÚ´æÖÐÉ¾³ýuserList
 
 }
