@@ -20,15 +20,15 @@ void parseAlarmTable();
 //将服务器发来的数据解析成相应的告警信息
 DWORD WINAPI getAlarmData(LPVOID pParam);
 
-void transAlarmData(const char*parse_data, const char*order, char*alarmContent,bool isChars);
+void transAlarmData(const char*parse_data, const char*order, char*alarmContent);
 
 void transStringAlarmData(const char*parse_data, const char*order, char*alarmContent);
 
 void transByteAlarmData(const char*parse_data, const char*order, char*alarmContent);
 
-void transByBit(const char byteData, cJSON*alarmTypeRoot, char*alarmContent);
+void transByBit(const int byteData, cJSON*alarmTypeRoot, char*alarmContent);
 
-void transByByte(const unsigned char byteData, cJSON*alarmTypeRoot, char*alarmContent);
+void transByByte(const int byteData, cJSON*alarmTypeRoot, char*alarmContent);
 
 void transAlarmFiled(const char*parse_data, cJSON*orderItem, char*alarmContent);
 

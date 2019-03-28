@@ -141,7 +141,7 @@ void WriteSystemLog(const char * strContent)
 	fclose(fp);
 }
 
-void parseStrToChars(char * data, unsigned char*chars)
+void parseStrToChars(const char * data, int*chars)
 {
 	char*p;
 	int i = 1;

@@ -7,6 +7,8 @@
 #include "SendSMS.h"
 #include "ATCMD.h"
 
+bool isChars_ = false;   //判断是字节协议还是字符协议
+
 void parseAlarmTable()
 {
 	char alarmContent[10240];
@@ -27,7 +29,6 @@ DWORD WINAPI getAlarmData(LPVOID pParam)
 	int dataCount = 0;
 	int dataLen = 0;
 	char alarmContent[1024] = { 0 };
-	bool isChars = false;
 	char*parse_data = NULL;
 	DataPacket * pdatapack=NULL;
 	memset(order, '0', sizeof(order));
@@ -60,7 +61,7 @@ DWORD WINAPI getAlarmData(LPVOID pParam)
 			sprintf(order, "%d", type);
 			sprintf(cpuid, "%d", packDev.devCpuId);
 			parse_data = packDev.data;
-			isChars = false;
+			isChars_ = false;
 #ifdef DEBUG
 			printf("字节告警\n");
 #endif 
@@ -71,7 +72,7 @@ DWORD WINAPI getAlarmData(LPVOID pParam)
 			parse_data = pdatapack->data;
 			sprintf(order, "%s%s", pdatapack->morder, pdatapack->sorder);
 			sprintf(cpuid, "%s", pdatapack->FH);
-			isChars = true;
+			isChars_ = true;
 #ifdef DEBUG
 	    	printf("字符告警\n");
 #endif
@@ -96,7 +97,7 @@ DWORD WINAPI getAlarmData(LPVOID pParam)
 				sprintf(alarmContent, "%s", format);           //获取告警信息的格式
 				replaceStr(alarmContent, "@device_name", devName);
 				replaceStr(alarmContent, "@dev_gw_cpuid", cpuid);
-				transAlarmData(parse_data, order, alarmContent,isChars);
+				transAlarmData(parse_data, order, alarmContent);
 			}
 		}
 
@@ -116,7 +117,7 @@ DWORD WINAPI getAlarmData(LPVOID pParam)
 	return 0;
 }
 
-void transAlarmData(const char*parse_data, const char*order, char*alarmContent,bool isChars) {
+void transAlarmData(const char*parse_data, const char*order, char*alarmContent) {
 	cJSON*item = NULL;
 	cJSON*orderItem= cJSON_GetObjectItem(alarmRoot_, order);   //获取告警命令对象
 	char content[1024] = { 0 };   //告警内容
@@ -129,16 +130,7 @@ void transAlarmData(const char*parse_data, const char*order, char*alarmContent,b
 		transStringAlarmData(parse_data, order, content);
 	}
 	else {
-		//字节处理
-		if (isChars) {
-			unsigned char data[1024] = { 0 };
-			printf("%s", parse_data);
-			parseStrToChars(parse_data, data);
-			transByteAlarmData(data, order, content);
-		}
-		else {
-			transByteAlarmData(parse_data, order, content);
-		}
+		transByteAlarmData(parse_data, order, content);
 	}
 	replaceStr(alarmContent, "@alarm_content", content);
 	//判断以哪种方式发送SMS
@@ -165,7 +157,7 @@ void transByteAlarmData(const char*parse_data, const char*order, char*alarmConte
 	cJSON*item = NULL;
 	cJSON*orderItem = cJSON_GetObjectItem(alarmRoot_, order);   //获取告警命令对象
 	item = cJSON_GetObjectItem(orderItem, "multiNodes");
-	if (item) {
+	if (item && strcmp(item->valuestring,"yes")==0) {
 		transAlarmLoop(parse_data, orderItem, alarmContent);
 	}
 	else {
@@ -174,7 +166,7 @@ void transByteAlarmData(const char*parse_data, const char*order, char*alarmConte
 	}
 }
 
-void transByBit(const char byteData,cJSON*alarmTypeRoot,char*alarmContent) {
+void transByBit(const int byteData,cJSON*alarmTypeRoot,char*alarmContent) {
 
 	cJSON*item = cJSON_GetObjectItem(alarmTypeRoot,"value");
 	int value = atoi(item->valuestring);
@@ -194,8 +186,7 @@ void transByBit(const char byteData,cJSON*alarmTypeRoot,char*alarmContent) {
 	}
 }
 
-void transByByte(const unsigned char byteData, cJSON*alarmTypeRoot, char*alarmContent) {
-	int dataValue = byteData;
+void transByByte(const int byteData, cJSON*alarmTypeRoot, char*alarmContent) {
 	cJSON*item = cJSON_GetObjectItem(alarmTypeRoot, "value");
 	int size = cJSON_GetArraySize(item);
 	cJSON*valueItem = NULL;
@@ -204,13 +195,13 @@ void transByByte(const unsigned char byteData, cJSON*alarmTypeRoot, char*alarmCo
 	sprintf(nodeAddr, "%s",valueItem->valuestring);
 	if ((1==size)&&(strcmp(nodeAddr, "-1")) == 0) {
 		item = cJSON_GetObjectItem(alarmTypeRoot, "meaning");
-		sprintf(alarmContent, "%s %s:%d ", alarmContent, item->valuestring, dataValue);
+		sprintf(alarmContent, "%s %s:%d ", alarmContent, item->valuestring, byteData);
 	}
 	else {
 		for (int i = 0; i < size; i++) {
 			valueItem = cJSON_GetArrayItem(item, i);
 			int value = atoi(valueItem->valuestring);
-			if (dataValue == value) {
+			if (byteData == value) {
 				valueItem = cJSON_GetObjectItem(alarmTypeRoot, "meaning");
 				sprintf(alarmContent, "%s %s", alarmContent, valueItem->valuestring);
 			}
@@ -220,42 +211,68 @@ void transByByte(const unsigned char byteData, cJSON*alarmTypeRoot, char*alarmCo
 
 void transAlarmFiled(const char*parse_data, cJSON*orderItem, char*alarmContent) {
 	char filed[10] = { 0 };
-	unsigned char value = 0;
+	int value = 0,site = 0;
+	int data[512] = { 0 };
 	cJSON*filedItem = NULL;
 	cJSON*unitItem = NULL;
 	cJSON*meanItem = cJSON_GetObjectItem(orderItem, "byteContent");
 	cJSON*item = cJSON_GetObjectItem(orderItem, "alarmByte");
-	int size = cJSON_GetArraySize(item);
+	int size = cJSON_GetArraySize(item);   //得到告警字段数量
+
+	if (isChars_) {    //如果是字符协议，将其数据部分转换成int型
+		parseStrToChars(parse_data, data);
+	}
+
 	for (int i = 0; i < size; i++) {
 		sprintf(filed, "%s", cJSON_GetArrayItem(item, i)->valuestring);
 		filedItem = cJSON_GetObjectItem(meanItem, filed);
 		unitItem = cJSON_GetObjectItem(filedItem, "unit");
-		value = atoi(filed)&0x000000ff;
-		value = parse_data[value];
-		if (strcmp(unitItem->valuestring, "byte") == 0) {
+		site = atoi(filed)&0x000000ff;
+		if (isChars_) {    //如果是字符协议
+			value = data[site];
+		}
+		else {           //字节协议
+			value = (unsigned char)parse_data[site];    //转为无符号数
+		}
+		if (strcmp(unitItem->valuestring, "byte") == 0) {  
 			transByByte(value, filedItem, alarmContent);
 		}
-		else {
+		else if(strcmp(unitItem->valuestring,"bit")==0){
 			transByBit(value, filedItem, alarmContent);
+		}
+		else if (strcmp(unitItem->valuestring, "ADSTB")==0) {
+			int addr = 0;
+			if (isChars_) {
+				addr = data[site];
+			}
+			else {
+				unsigned char charTmp[2] = { 0 };
+				charTmp[0] = parse_data[site]; charTmp[1] = parse_data[site + 1];
+				addr = ((charTmp[0] << 8) + charTmp[1])&(0x3ff);
+			}
+			unitItem = cJSON_GetObjectItem(filedItem, "meaning");
+			sprintf(alarmContent,"%s %s:%d", alarmContent,unitItem->valuestring, addr);
 		}
 	}
 }
 
 void transAlarmLoop(const char*parse_data, cJSON*orderItem, char*alarmContent) {
 	short  count = 0;
-	unsigned char value = 0;
+	int value = 0,site = 0;
 	int size = 0;
 	int nodeLen = 0;
 	char filed[10] = { 0 };
+	int data[512] = { 0 };
 	cJSON*filedItem = NULL;
 	cJSON*unitItem = NULL;
 	cJSON*item = NULL;
 	item = cJSON_GetObjectItem(orderItem, "protocol");
 	cJSON*meanItem = cJSON_GetObjectItem(orderItem, "byteContent");
 	if (strcmp(item->valuestring, "char")==0) {
+		parseStrToChars(parse_data, data);  //解析字符串数据，转换为int型
 		item = cJSON_GetObjectItem(orderItem, "nodesNumByte");
 		count = atoi(item->valuestring);
-		count = parse_data[count];
+		count = data[count];
 		item = cJSON_GetObjectItem(orderItem, "alarmByte");
 		size = cJSON_GetArraySize(item);
 		char lenstr[10] = { 0 };
@@ -278,13 +295,32 @@ void transAlarmLoop(const char*parse_data, cJSON*orderItem, char*alarmContent) {
 			sprintf(filed, "%s", cJSON_GetArrayItem(item, j)->valuestring);
 			filedItem = cJSON_GetObjectItem(meanItem, filed);
 			unitItem = cJSON_GetObjectItem(filedItem, "unit");
-			value = atoi(filed) & 0x000000ff;
-			value = parse_data[value+i*nodeLen];
+			site = atoi(filed) & 0x000000ff;
+			site = site + i*nodeLen;
+			if (isChars_) {    //如果是字符协议
+				value = data[site];
+			}
+			else {           //字节协议
+				value = (unsigned char)parse_data[site];    //转为无符号数
+			}
 			if (strcmp(unitItem->valuestring, "byte") == 0) {
 				transByByte(value, filedItem, alarmContent);
 			}
-			else {
+			else if (strcmp(unitItem->valuestring, "bit") == 0) {
 				transByBit(value, filedItem, alarmContent);
+			}
+			else if (strcmp(unitItem->valuestring, "ADSTB")==0) {  //单灯地址号
+				int addr = 0;
+				if (isChars_) {
+					addr = data[site];
+				}
+				else {
+					unsigned char charTmp[2] = { 0 };
+					charTmp[0] = parse_data[site]; charTmp[1] = parse_data[site + 1];
+					addr = ((charTmp[0] << 8) + charTmp[1])&(0x3ff);
+				}
+				unitItem = cJSON_GetObjectItem(filedItem, "meaning");
+				sprintf(alarmContent,"%s %s:%d", alarmContent,unitItem->valuestring, addr);
 			}
 		}
 	}
